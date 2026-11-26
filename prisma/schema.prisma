@@ -1,0 +1,305 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Fixture snapshot for analytics & result reconciliation
+model MatchFixture {
+  id           String   @id @default(cuid())
+  apiFixtureId Int      @unique
+  homeTeam     String
+  awayTeam     String
+  leagueId     String
+  leagueName   String
+  matchDate    DateTime
+  finalScore   String?
+  status       String   @default("NS")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  predictions Prediction[]
+
+  @@index([leagueId])
+  @@index([matchDate])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Individual model pick (leg) linked to a fixture and optional ticket
+model Prediction {
+  id               String   @id @default(cuid())
+  fixtureId        String
+  ticketId         String?
+  market           String
+  selection        String
+  odds             Float
+  modelProbability Float
+  /// Book line captured at pick time is `odds`. Closing line (pre-kickoff).
+  closingOdds      Float?
+  closingOddsAt    DateTime?
+  /// WON | LOST | PENDING | VOID
+  outcome          String   @default("PENDING")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  fixture MatchFixture       @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  ticket  AccumulatorTicket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([outcome])
+  @@index([market])
+  @@index([fixtureId])
+  @@index([createdAt])
+}
+
+/// Accumulator or single-pick ticket
+model AccumulatorTicket {
+  id        String   @id @default(cuid())
+  date      String
+  mode      String
+  stakeCLP  Float
+  totalOdds Float
+  payoutCLP Float
+  /// PENDING | WON | LOST | VOID
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  predictions Prediction[]
+
+  @@index([date])
+  @@index([mode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Persistent HTTP cache for API-Football responses (quota saver)
+model CachedApiResponse {
+  /// Stable key e.g. fixtures_date_2026-08-12 or fixtures_ids_123-456
+  id        String   @id
+  endpoint  String
+  payload   String
+  /// Far-future date = permanent (finished fixtures)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([endpoint])
+  @@index([expiresAt])
+}
+
+/// Official API-Football daily quota mirrored from response headers
+model ApiQuotaDaily {
+  /// YYYY-MM-DD (Chile)
+  date       String   @id
+  /// Official used (= limit - remaining)
+  callCount  Int      @default(0)
+  /// x-ratelimit-requests-limit
+  limit      Int      @default(100)
+  /// x-ratelimit-requests-remaining
+  remaining  Int      @default(100)
+  /// True only after values were written from live response headers
+  fromHeaders Boolean @default(false)
+  updatedAt  DateTime @updatedAt
+}
+
+/// Single-tenant bankroll (id = "default")
+model BankrollSettings {
+  id                String   @id
+  totalBankroll     Float
+  currency          String   @default("CLP")
+  minBookmakerStake Float
+  maxRiskSingle     Float
+  maxRiskParlay     Float
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// Rolling team stats from finished MatchFixture history (local calibration)
+model TeamProfile {
+  id                   String   @id @default(cuid())
+  /// API-Football team id
+  teamId               Int      @unique
+  teamName             String
+  /// Domestic origin league (API-Football id) — grouping key, not display name
+  primaryLeagueId      Int?
+  /// Country label derived from primaryLeagueId (e.g. Italia / Brasil)
+  country              String?
+  totalMatchesAnalyzed Int      @default(0)
+  /// Settled samples in rolling window as home / away
+  homeMatchesCount     Int      @default(0)
+  awayMatchesCount     Int      @default(0)
+  avgGoalsScoredHome   Float    @default(0)
+  avgGoalsConcededHome Float    @default(0)
+  avgGoalsScoredAway   Float    @default(0)
+  avgGoalsConcededAway Float    @default(0)
+  /// Fraction 0–1 of analyzed matches with total goals > 1.5
+  over15GoalsRate      Float    @default(0)
+  over15GoalsRateHome  Float    @default(0)
+  over15GoalsRateAway  Float    @default(0)
+  /// Fraction 0–1 of analyzed matches with total goals > 2.5
+  over25GoalsRate      Float    @default(0)
+  /// Fraction 0–1 of analyzed matches where this team conceded 0
+  cleanSheetRate       Float    @default(0)
+  cleanSheetRateHome   Float    @default(0)
+  cleanSheetRateAway   Float    @default(0)
+  /// When set, profiler ignores matches before this date (manager reset)
+  lastManagerChangeDate DateTime?
+  /// Key attacking-line absences known for this team (λ dampener)
+  keyAbsencesCount     Int      @default(0)
+  /// Brier-driven Poisson probability multiplier (1 = neutral)
+  brierCalibrationFactor Float  @default(1)
+  /// Advanced metrics (ingested offline via soccerdata/Understat)
+  avgNpxGScored          Float?
+  avgNpxGConceded        Float?
+  avgPPDA                Float?
+  avgCornersFor          Float?
+  avgCornersAgainst      Float?
+  avgCardsFor            Float?
+  avgCardsAgainst        Float?
+  updatedAt            DateTime @updatedAt
+
+  @@index([teamName])
+  @@index([primaryLeagueId])
+}
+
+/// Point-in-time team profile snapshots (advanced metrics + optional rolling cache per matchday)
+model TeamProfileSnapshot {
+  id                   String   @id @default(cuid())
+  teamId               Int
+  /// Cutoff date: aggregates include only matches strictly before this calendar day
+  asOfDate             DateTime @db.Date
+  teamName             String?
+  primaryLeagueId      Int?
+  totalMatchesAnalyzed Int      @default(0)
+  homeMatchesCount     Int      @default(0)
+  awayMatchesCount     Int      @default(0)
+  avgGoalsScoredHome   Float    @default(0)
+  avgGoalsConcededHome Float    @default(0)
+  avgGoalsScoredAway   Float    @default(0)
+  avgGoalsConcededAway Float    @default(0)
+  over15GoalsRate      Float    @default(0)
+  over15GoalsRateHome  Float    @default(0)
+  over15GoalsRateAway  Float    @default(0)
+  over25GoalsRate      Float    @default(0)
+  cleanSheetRate       Float    @default(0)
+  cleanSheetRateHome   Float    @default(0)
+  cleanSheetRateAway   Float    @default(0)
+  avgNpxGScored        Float?
+  avgNpxGConceded      Float?
+  avgPPDA              Float?
+  avgCornersFor        Float?
+  avgCornersAgainst    Float?
+  avgCardsFor          Float?
+  avgCardsAgainst      Float?
+  createdAt            DateTime @default(now())
+
+  @@unique([teamId, asOfDate])
+  @@index([teamId, asOfDate])
+}
+
+/// Point-in-time TimesFM t+1 forecasts (offline batch; exclusive asOf cutoff)
+model TeamTimesfmForecast {
+  id                    Int      @id @default(autoincrement())
+  teamId                Int
+  /// Cutoff date: series include only matches strictly before this calendar day
+  asOfDate              DateTime @db.Date
+  timesfmXgScored       Float?
+  timesfmXgConceded     Float?
+  timesfmNpxGScored     Float?
+  timesfmNpxGConceded   Float?
+  timesfmCornersFor     Float?
+  timesfmCornersAgainst Float?
+  timesfmCardsFor       Float?
+  timesfmCardsAgainst   Float?
+  timesfmFormScore      Float    @default(0.5)
+  updatedAt             DateTime @updatedAt
+
+  @@unique([teamId, asOfDate])
+  @@index([asOfDate])
+  @@index([teamId, asOfDate])
+}
+
+/// Auto-tuned model weights (Neon primary store; config/model-weights.json is seed fallback)
+model ModelWeightsConfig {
+  id        String   @id @default("default")
+  weights   Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Referee historic card/foul profile for xCard friction engine
+model RefereeProfile {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  avgYellowCards   Float
+  avgRedCards      Float
+  avgFoulsPerMatch Float
+  avgPenalties     Float    @default(0)
+  /// Global strictness vs cross-competition baseline. 1.0 = average.
+  strictnessIndex  Float
+  matchCount       Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  leagueStats  RefereeLeagueStat[]
+  matchRecords RefereeMatchRecord[]
+}
+
+/// Per-competition referee averages (strictness vs league baseline).
+model RefereeLeagueStat {
+  id               String   @id @default(uuid())
+  refereeId        String
+  leagueId         Int
+  /// AllowedLeagueRegion slug from config/allowed-leagues.ts
+  region           String
+  avgYellowCards   Float
+  avgRedCards      Float
+  avgFoulsPerMatch Float
+  avgPenalties     Float    @default(0)
+  matchCount       Int
+  strictnessIndex  Float
+  updatedAt        DateTime @updatedAt
+
+  referee RefereeProfile @relation(fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@unique([refereeId, leagueId])
+  @@index([leagueId])
+  @@index([region])
+}
+
+/// League-level card/foul baseline for strictness normalization.
+model CompetitionCardBaseline {
+  leagueId         Int      @id
+  region           String
+  avgYellowCards   Float
+  avgRedCards      Float
+  avgFoulsPerMatch Float
+  avgPenalties     Float    @default(0)
+  matchCount       Int
+  updatedAt        DateTime @updatedAt
+
+  @@index([region])
+}
+
+/// Point-in-time referee fixture rows for asOf aggregation (leakage-safe).
+model RefereeMatchRecord {
+  id           String   @id @default(uuid())
+  refereeId    String
+  leagueId     Int
+  apiFixtureId Int      @unique
+  matchDate    DateTime
+  yellowCards  Float
+  redCards     Float
+  fouls        Float
+  penalties    Float    @default(0)
+
+  referee RefereeProfile @relation(fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@index([refereeId, matchDate])
+  @@index([refereeId, leagueId, matchDate])
+}

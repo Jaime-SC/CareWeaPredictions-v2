@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Dark is the default theme; `.light` on <html> switches. See docs/PLAN.md › Paleta y tokens. */
+@custom-variant light (&:where(.light, .light *));
+
+:root {
+  /* Brand (60 / 30 / 10) */
+  --brand-primary: #1b4532;
+  --brand-secondary: #fffbfc;
+  --brand-accent: #ee4129;
+  /* AA-safe accent for fills with normal-size text (4.56:1 vs #fffbfc) */
+  --brand-accent-strong: #d63a24;
+
+  /* Dark (default) */
+  --background: #0b1c14;
+  --surface: #12301f;
+  --surface-raised: #1b4532;
+  --border: color-mix(in oklab, #fffbfc 12%, transparent);
+  --foreground: #fffbfc;
+  --muted-foreground: color-mix(in oklab, #fffbfc 68%, #0b1c14);
+  --accent: var(--brand-accent);
+  --accent-foreground: #fffbfc;
+  --ring: var(--brand-accent);
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 450ms;
+
+  color-scheme: dark;
+}
+
+.light {
+  --background: #fffbfc;
+  --surface: #f4efef;
+  --surface-raised: #ffffff;
+  --border: color-mix(in oklab, #1b4532 14%, transparent);
+  --foreground: #10261b;
+  --muted-foreground: color-mix(in oklab, #10261b 66%, #fffbfc);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--brand-primary);
+  --color-secondary: var(--brand-secondary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--brand-accent-strong);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --ease-out-expo: var(--ease-out-expo);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,1176 @@
+import type {
+  GeneratedParlay,
+  MarketPrediction,
+  MarketType,
+  Match,
+  MatchPrediction,
+  ParlayConfig,
+  ParlayLeg,
+  RiskTier,
+  SameGameBetBuilder,
+  StrategyMode,
+} from "./types";
+import {
+  STRATEGY_LABELS,
+  getStrategyPreset,
+  isFunStrategy,
+  isMonopolyStrategy,
+  isSafeStrategy,
+  resolveStrategyMode,
+} from "./parlay-defaults";
+import {
+  predictMatchMarkets,
+  hasBookmakerOdds,
+  MIN_SELECTION_ODDS,
+  MIN_VALUE_MARGIN,
+} from "./poisson";
+import { isValueBet, VALUE_MARGIN_THRESHOLD_PCT, valueMarginPercent } from "./value-finder";
+import {
+  derbyPreferredMarkets,
+  isHighRiskDerby,
+  isMarketBlockedByDerby,
+  notesForFlags,
+  resolveContextMinProbability,
+} from "./context-engine";
+import {
+  evaluateKnockoutContext,
+  toKnockoutContext,
+} from "./knockout-engine";
+import { resolveRivalryMultiplier } from "./friction-engine";
+import {
+  meanTimesfmFormScore,
+  peekTimesfmForecastAt,
+} from "./timesfm-forecast";
+import { rejectMatchesWithoutRealOdds } from "./filters";
+import {
+  getLeagueWeight,
+  getMarketWeight,
+  loadModelWeights,
+  resolveMinProbability,
+} from "./model-weights";
+import {
+  chileDateString,
+  formatKickoffDayLabel,
+  sortByKickoffDesc,
+} from "./utils";
+import {
+  bothTeamsInRoster,
+  isAllowedCompetition,
+  isConmebolCompetitionId,
+  isConcacafRegionalCompetitionId,
+  isEuropeNationalCupId,
+  isLeagueInPredictionScope,
+  isSaNationalCupId,
+  isUefaCompetitionId,
+  parseLeagueId,
+  type PredictionScopeOptions,
+} from "../config/allowed-leagues";
+import {
+  peekConmebolEligibleTeamIds,
+  peekConcacafEligibleTeamIds,
+  peekEuropeBig5TeamIds,
+  peekEuropeCupOriginRosters,
+  peekSaCupOriginRosters,
+} from "./api-football";
+import { prioritizeValueLegs } from "./value-finder";
+import {
+  formatExplicitBetLine,
+  formatMarketGuideLines,
+  getExplicitPickFromLeg,
+} from "./formatters";
+import {
+  buildMonopolyParlay,
+  getWeeklyDateRange,
+} from "./monopoly-engine";
+import { recalculateParlay } from "./parlay-recalc";
+import { ALL_PARLAY_MARKETS } from "./phase2-markets";
+
+export { DEFAULT_AUTO_PARLAY_CONFIG } from "./parlay-defaults";
+export { getWeeklyDateRange };
+export { recalculateParlay };
+
+/**
+ * Defense-in-depth: ID is source of truth; name cannot rescue a lower division
+ * (e.g. Colombia Primera B labeled "Primera B" must not match Chile's alias).
+ * Primary filtering happens in api-football; this clamp runs again before parlays.
+ * UEFA / CONMEBOL / national cups: when origin rosters are warm, enforce tier gates.
+ */
+export function filterEliteWhitelistMatches(matches: Match[]): Match[] {
+  const big5 = peekEuropeBig5TeamIds();
+  const europeCups = peekEuropeCupOriginRosters();
+  const saOrigins = peekSaCupOriginRosters();
+  const conmebol = peekConmebolEligibleTeamIds();
+  const concacaf = peekConcacafEligibleTeamIds();
+  return matches.filter((m) => {
+    if (!isAllowedCompetition(m.leagueId, m.leagueName)) return false;
+    const id = parseLeagueId(m.leagueId);
+    if (id == null) return true;
+
+    const originOk = (roster: ReadonlySet<number> | null | undefined) => {
+      if (!roster || roster.size === 0) return true;
+      if (bothTeamsInRoster(m.home.id, m.away.id, roster)) return true;
+      console.log(
+        `[ORIGIN DROP] ${m.home.name} vs ${m.away.name}: Teams not from allowed Top 5 / SA 1st-2nd divisions`
+      );
+      return false;
+    };
+
+    if (isUefaCompetitionId(id)) return originOk(big5);
+
+    if (isConmebolCompetitionId(id)) return originOk(conmebol);
+
+    if (isConcacafRegionalCompetitionId(id)) return originOk(concacaf);
+
+    if (isEuropeNationalCupId(id)) {
+      if (!europeCups || europeCups.size === 0) return true;
+      return originOk(europeCups.get(id));
+    }
+
+    if (isSaNationalCupId(id)) {
+      if (!saOrigins || saOrigins.size === 0) return true;
+      return originOk(saOrigins.get(id));
+    }
+
+    return true;
+  });
+}
+
+/** Apply default preset / expansion / selective country·league filters. */
+export function filterMatchesByPredictionScope(
+  matches: Match[],
+  scope?: PredictionScopeOptions
+): Match[] {
+  return matches.filter((m) =>
+    isLeagueInPredictionScope(m.leagueId, scope)
+  );
+}
+
+function scopeFromConfig(
+  config: Pick<
+    ParlayConfig,
+    "expandLeagues" | "selectedCountries" | "selectedLeagueIds"
+  >
+): PredictionScopeOptions {
+  return {
+    expandLeagues: config.expandLeagues === true,
+    selectedCountries: config.selectedCountries,
+    selectedLeagueIds: config.selectedLeagueIds,
+  };
+}
+
+/** Probability-first pool: goals + corners/cards/HT compete on modelProbability. */
+const SAFE_MARKETS = ALL_PARLAY_MARKETS;
+const FUN_MARKETS = ALL_PARLAY_MARKETS;
+
+/**
+ * High-certainty markets preferred for accumulators (no lottery-style legs).
+ * // ponytail: no Asian Handicap market type yet; DC / DNB / team totals stand in
+ */
+const HIGH_CERTAINTY_MARKETS = new Set<MarketType>([
+  "1x",
+  "x2",
+  "dnb_home",
+  "dnb_away",
+  "home_scores",
+  "away_scores",
+  "over_0_5",
+  "home_over_1_5",
+  "away_over_1_5",
+  "under_3_5",
+  "under_4_5",
+  "ht_over_0_5",
+]);
+
+function highCertaintyBonus(market: MarketType): number {
+  return HIGH_CERTAINTY_MARKETS.has(market) ? 0.4 : 0;
+}
+
+/** Hard floor: every accumulator leg must be ≥ 80% model probability. */
+export const MIN_LEG_PROBABILITY = 0.8;
+
+export { MIN_SELECTION_ODDS };
+
+/** Fallback strict gate when weights file is missing. */
+export const STRICT_MIN_PROBABILITY = MIN_LEG_PROBABILITY;
+
+/** Backfill never goes below the 80% hard floor. */
+const FUN_BACKFILL_MIN_PROBABILITY = MIN_LEG_PROBABILITY;
+
+/** Floor used when backfilling safe / calibrated tickets. */
+const BACKFILL_MIN_PROBABILITY = MIN_LEG_PROBABILITY;
+
+/** Ideal per-leg odds so ~1.62^15 ≈ 130x (band 1.40–1.85 → ~150x–500x). */
+const FUN_TARGET_LEG_ODDS = 1.625;
+
+/** Default exact leg count for fun / accumulator tickets. */
+export const DEFAULT_TARGET_LEG_COUNT = 15;
+
+function getStrictMinProbability(): number {
+  // Accumulator hard floor always wins over a softer calibrated file value
+  return Math.max(
+    MIN_LEG_PROBABILITY,
+    loadModelWeights().global.strictMinProbability ?? STRICT_MIN_PROBABILITY
+  );
+}
+
+function getBackfillMinProbability(strategyMode?: StrategyMode): number {
+  if (strategyMode && isFunStrategy(strategyMode)) {
+    return FUN_BACKFILL_MIN_PROBABILITY;
+  }
+  return Math.max(
+    MIN_LEG_PROBABILITY,
+    loadModelWeights().global.backfillMinProbability ?? BACKFILL_MIN_PROBABILITY
+  );
+}
+
+/** Score how close odds are to the high-probability geometric mean (~1.22). */
+function funOddsFit(odds: number): number {
+  if (!(odds > 1)) return -10;
+  return -Math.abs(Math.log(odds) - Math.log(FUN_TARGET_LEG_ODDS)) * 4;
+}
+
+function resolveMode(config: ParlayConfig): StrategyMode {
+  return resolveStrategyMode(config.strategyMode);
+}
+
+function riskAssessment(
+  jointProbability: number,
+  riskTier: RiskTier
+): {
+  riskLevel: GeneratedParlay["riskLevel"];
+  riskLabel: string;
+} {
+  if (riskTier === "safe") {
+    if (jointProbability >= 0.35) {
+      return {
+        riskLevel: "low",
+        riskLabel: "Riesgo bajo — probabilidad conjunta sólida",
+      };
+    }
+    if (jointProbability >= 0.2) {
+      return {
+        riskLevel: "medium",
+        riskLabel: "Riesgo medio-bajo — perfil estratégico",
+      };
+    }
+    return {
+      riskLevel: "medium",
+      riskLabel: "Riesgo moderado — pocas selecciones de alta confianza",
+    };
+  }
+
+  if (riskTier === "monopoly") {
+    if (jointProbability >= 0.2) {
+      return {
+        riskLevel: "low",
+        riskLabel: "Asimetría / monopolio doméstico — filtro anti-rotación",
+      };
+    }
+    return {
+      riskLevel: "medium",
+      riskLabel: "Asimetría / monopolio — probabilidad conjunta moderada",
+    };
+  }
+
+  if (jointProbability >= 0.05) {
+    return {
+      riskLevel: "high",
+      riskLabel: "Modo Seguro / Alta Probabilidad (piso 80% por leg)",
+    };
+  }
+  return {
+    riskLevel: "extreme",
+    riskLabel: "Modo Seguro / Alta Probabilidad — pocas legs ≥80%",
+  };
+}
+
+function toLeg(match: Match, pick: MarketPrediction): ParlayLeg {
+  const knockoutEval = evaluateKnockoutContext(match);
+  const knockoutContext = pick.knockoutContext ?? toKnockoutContext(knockoutEval);
+  const flags = [
+    ...(pick.contextFlags ?? []),
+    ...knockoutEval.flags,
+  ];
+  const uniqueFlags = [...new Set(flags)];
+  const notes = notesForFlags(uniqueFlags);
+  if (knockoutContext?.note && !notes.includes(knockoutContext.note)) {
+    notes.push(knockoutContext.note);
+  }
+  return {
+    matchId: match.id,
+    matchLabel: `${match.home.name} vs ${match.away.name}`,
+    leagueName: match.leagueName,
+    kickoff: match.kickoff,
+    market: pick.market,
+    marketLabel: pick.label,
+    odds: pick.odds,
+    modelProbability: pick.modelProbability,
+    edge: pick.edge,
+    contextFlags: uniqueFlags,
+    contextNotes: notes,
+    referee: match.referee ?? null,
+    venue: match.venue ?? null,
+    knockoutContext,
+  };
+}
+
+const BET_BUILDER_PRIMARY = new Set<MarketType>([
+  "1x",
+  "x2",
+  "over_1_5",
+  "home_scores",
+  "away_scores",
+]);
+
+function isBetBuilderSecondaryMarket(market: MarketType): boolean {
+  return market.startsWith("corners_") || market.startsWith("cards_");
+}
+
+/**
+ * Same-game combos: low-risk primary leg + high-probability secondary leg.
+ * // ponytail: independence assumption, upgrade with copula when calibrated
+ */
+export function buildSameGameBetBuilders(
+  matches: Match[],
+  options?: { minValuePct?: number }
+): SameGameBetBuilder[] {
+  const minValuePct = options?.minValuePct ?? VALUE_MARGIN_THRESHOLD_PCT;
+  const primaryMinProb = 0.8;
+  const secondaryMinProb = 0.7;
+  const builders: SameGameBetBuilder[] = [];
+
+  for (const match of matches) {
+    if (!hasBookmakerOdds(match.odds)) continue;
+
+    const rivalryMult = resolveRivalryMultiplier({
+      leagueId: match.leagueId ? Number(match.leagueId) : undefined,
+      roundLabel: match.round,
+    });
+    const { markets } = predictMatchMarkets(match, {
+      minSafeProbability: primaryMinProb,
+      minSafeOdds: MIN_SELECTION_ODDS,
+      maxSafeOdds: 1.85,
+      asOf: new Date(match.kickoff),
+      rivalryMultiplier: rivalryMult,
+    });
+
+    const primary = markets
+      .filter(
+        (m) =>
+          BET_BUILDER_PRIMARY.has(m.market) &&
+          m.modelProbability >= primaryMinProb &&
+          m.isSafePick
+      )
+      .sort((a, b) => b.modelProbability - a.modelProbability)[0];
+
+    const secondary = markets
+      .filter(
+        (m) =>
+          isBetBuilderSecondaryMarket(m.market) &&
+          m.modelProbability >= secondaryMinProb
+      )
+      .sort((a, b) => b.modelProbability - a.modelProbability)[0];
+
+    if (!primary || !secondary) continue;
+
+    const legPrimary = toLeg(match, primary);
+    const legSecondary = toLeg(match, secondary);
+    const combinedOdds = Number((legPrimary.odds * legSecondary.odds).toFixed(4));
+    const jointProbability = Number(
+      (legPrimary.modelProbability * legSecondary.modelProbability).toFixed(6)
+    );
+    const margin = valueMarginPercent(jointProbability, combinedOdds);
+    const asOf = new Date(match.kickoff);
+    const timesfmFormScore = meanTimesfmFormScore(
+      peekTimesfmForecastAt(match.home.id, asOf),
+      peekTimesfmForecastAt(match.away.id, asOf)
+    );
+    if (
+      !isValueBet(jointProbability, combinedOdds, minValuePct, timesfmFormScore)
+    ) {
+      continue;
+    }
+
+    builders.push({
+      matchId: match.id,
+      matchLabel: `${match.home.name} vs ${match.away.name}`,
+      legs: [legPrimary, legSecondary],
+      combinedOdds,
+      jointProbability,
+      valueMarginPercent: Number(margin.toFixed(2)),
+    });
+  }
+
+  return builders.sort(
+    (a, b) => b.valueMarginPercent - a.valueMarginPercent
+  );
+}
+
+type RankMode = "edge" | "odds" | "probability" | "balanced";
+
+function isMarketAllowed(
+  market: MarketType,
+  strategyMode: StrategyMode,
+  match?: Match
+): boolean {
+  const mkt = getMarketWeight(market);
+  if (mkt.disabled) return false;
+  if (match && isMarketBlockedByDerby(match, market)) return false;
+  return isSafeStrategy(strategyMode)
+    ? SAFE_MARKETS.has(market)
+    : FUN_MARKETS.has(market);
+}
+
+/** Ranking nudge: prefer Over 1.5 / team-scores on high-risk derbies. */
+function derbyMarketRankBonus(match: Match, market: MarketType): number {
+  if (!isHighRiskDerby(match)) return 0;
+  if (market === "under_3_5") return -2;
+  if (derbyPreferredMarkets().has(market)) return 0.35;
+  return 0;
+}
+
+/** Dedup SANITY DROP across collectSafePicks passes (modes / backfill). */
+const sanityDropLogged = new Set<string>();
+
+/**
+ * Collect eligible legs: one pick per match = highest modelProbability
+ * (tie-break: edge, then lower odds). No market-family quotas.
+ */
+export function collectSafePicks(
+  matches: Match[],
+  config: Pick<
+    ParlayConfig,
+    "minOdds" | "maxOdds" | "minProbability" | "strategyMode" | "targetLegCount"
+  >,
+  mode: RankMode = "probability"
+): ParlayLeg[] {
+  const strategyMode = resolveMode(config as ParlayConfig);
+  const preset = getStrategyPreset(strategyMode);
+  const baseMinProb = Math.max(
+    MIN_LEG_PROBABILITY,
+    config.minProbability ??
+      preset.minProbability ??
+      getStrictMinProbability()
+  );
+  const weights = loadModelWeights();
+
+  type Cand = {
+    match: Match;
+    pick: MarketPrediction;
+    rank: number;
+  };
+
+  const perMatch: Cand[] = [];
+
+  for (const match of matches) {
+    if (!hasBookmakerOdds(match.odds)) continue;
+    const resolved = match;
+    void evaluateKnockoutContext(resolved);
+
+    const leagueCfg = getLeagueWeight(
+      resolved.leagueName,
+      weights,
+      resolved.leagueId
+    );
+    const leagueMinOdds = Math.max(
+      MIN_SELECTION_ODDS,
+      config.minOdds,
+      leagueCfg.minOdds || config.minOdds
+    );
+
+    const { markets } = predictMatchMarkets(resolved, {
+      minSafeProbability: resolveContextMinProbability(baseMinProb, resolved),
+      minSafeOdds: leagueMinOdds,
+      maxSafeOdds: config.maxOdds,
+      asOf: new Date(resolved.kickoff),
+    });
+
+    const eligible = markets.filter((m) => {
+      if (!isMarketAllowed(m.market, strategyMode, resolved)) return false;
+      if (m.odds < MIN_SELECTION_ODDS) return false;
+      if (
+        !isValueBet(m.modelProbability, m.odds, MIN_VALUE_MARGIN * 100)
+      ) {
+        return false;
+      }
+      const minProb = Math.max(
+        MIN_LEG_PROBABILITY,
+        resolveContextMinProbability(
+          resolveMinProbability(
+            baseMinProb,
+            m.market,
+            resolved.leagueName,
+            weights,
+            resolved.leagueId
+          ),
+          resolved
+        )
+      );
+      const clearsFloor =
+        m.modelProbability >= minProb &&
+        m.odds >= leagueMinOdds &&
+        m.odds <= config.maxOdds;
+      if (!clearsFloor) return false;
+      if (!m.isSafePick) {
+        const sanity =
+          m.contextFlags?.includes("UNDERDOG_SANITY") ||
+          m.contextFlags?.includes("MODEL_MARKET_ANOMALY");
+        if (sanity) {
+          const key = `${resolved.home.name}\0${resolved.away.name}`;
+          if (!sanityDropLogged.has(key)) {
+            sanityDropLogged.add(key);
+            console.log(
+              `[SANITY DROP] ${resolved.home.name} vs ${resolved.away.name}: Market odds conflict / underdog pick`
+            );
+          }
+        }
+        return false;
+      }
+      return true;
+    });
+
+    if (eligible.length === 0) continue;
+
+    eligible.sort((a, b) => {
+      const aScore =
+        a.modelProbability * 10 +
+        highCertaintyBonus(a.market) +
+        a.edge;
+      const bScore =
+        b.modelProbability * 10 +
+        highCertaintyBonus(b.market) +
+        b.edge;
+      if (bScore !== aScore) return bScore - aScore;
+      if (b.modelProbability !== a.modelProbability) {
+        return b.modelProbability - a.modelProbability;
+      }
+      if (b.edge !== a.edge) return b.edge - a.edge;
+      if (a.odds !== b.odds) return a.odds - b.odds;
+      return (
+        derbyMarketRankBonus(resolved, b.market) -
+        derbyMarketRankBonus(resolved, a.market)
+      );
+    });
+
+    const pick = eligible[0];
+    perMatch.push({
+      match: resolved,
+      pick,
+      rank:
+        pick.modelProbability * 10 +
+        pick.edge +
+        highCertaintyBonus(pick.market),
+    });
+  }
+
+  // Highest Poisson probability first (high-certainty markets nudged above lottery legs)
+  perMatch.sort((a, b) => {
+    if (b.pick.modelProbability !== a.pick.modelProbability) {
+      return b.pick.modelProbability - a.pick.modelProbability;
+    }
+    if (b.rank !== a.rank) return b.rank - a.rank;
+    return a.pick.odds - b.pick.odds;
+  });
+  return perMatch
+    .map((c) => toLeg(c.match, c.pick))
+    .sort((a, b) => compareLegs(a, b, mode));
+}
+
+/**
+ * Strict pool (≥ calibrated minProbability) plus probability-ranked backfill
+ * until the pool has at least `targetLegCount` unique-match candidates.
+ */
+export function collectPicksWithBackfill(
+  matches: Match[],
+  config: Pick<
+    ParlayConfig,
+    "minOdds" | "maxOdds" | "minProbability" | "strategyMode" | "targetLegCount"
+  >,
+  targetLegCount: number,
+  mode: RankMode = "edge"
+): { pool: ParlayLeg[]; strictCount: number; backfilled: number } {
+  const strictMin = Math.max(
+    MIN_LEG_PROBABILITY,
+    config.minProbability ?? getStrictMinProbability()
+  );
+
+  const strict = collectSafePicks(
+    matches,
+    { ...config, minProbability: strictMin, targetLegCount },
+    mode
+  );
+
+  if (strict.length >= targetLegCount) {
+    return {
+      pool: strict,
+      strictCount: strict.length,
+      backfilled: 0,
+    };
+  }
+
+  const relaxed = collectSafePicks(
+    matches,
+    {
+      ...config,
+      minProbability: getBackfillMinProbability(
+        resolveMode(config as ParlayConfig)
+      ),
+      targetLegCount,
+    },
+    isFunStrategy(resolveMode(config as ParlayConfig)) ? "odds" : "probability"
+  );
+
+  const used = new Set(strict.map((l) => l.matchId));
+  const extras = relaxed
+    .filter((l) => !used.has(l.matchId))
+    .sort((a, b) => compareLegs(a, b, "probability"));
+
+  const needed = targetLegCount - strict.length;
+  const backfill = extras.slice(0, needed);
+  const pool = [...strict, ...backfill].sort((a, b) =>
+    compareLegs(a, b, mode)
+  );
+
+  return {
+    pool,
+    strictCount: strict.length,
+    backfilled: backfill.length,
+  };
+}
+
+function resolveTargetLegCount(config: ParlayConfig): number {
+  if (
+    typeof config.targetLegCount === "number" &&
+    config.targetLegCount > 0
+  ) {
+    return Math.floor(config.targetLegCount);
+  }
+  const strategyMode = resolveMode(config);
+  const preset = getStrategyPreset(strategyMode);
+  if (
+    typeof preset.targetLegCount === "number" &&
+    preset.targetLegCount > 0
+  ) {
+    return preset.targetLegCount;
+  }
+  if (isFunStrategy(strategyMode)) return DEFAULT_TARGET_LEG_COUNT;
+  return preset.minLegs;
+}
+
+function compareLegs(a: ParlayLeg, b: ParlayLeg, mode: RankMode): number {
+  switch (mode) {
+    case "odds":
+      return b.odds - a.odds || b.modelProbability - a.modelProbability;
+    case "probability":
+      return b.modelProbability - a.modelProbability || b.edge - a.edge;
+    case "balanced":
+      return (
+        b.odds * 0.55 +
+        b.modelProbability * 0.3 +
+        Math.max(0, b.edge) * 0.15 -
+        (a.odds * 0.55 + a.modelProbability * 0.3 + Math.max(0, a.edge) * 0.15)
+      );
+    case "edge":
+    default:
+      return b.edge - a.edge || b.modelProbability - a.modelProbability;
+  }
+}
+
+/**
+ * Multi-strategy generator: tries edge / odds / probability / balanced pools
+ * and keeps the candidate best suited to the risk tier.
+ *
+ * Fun / accumulator modes honor `targetLegCount` (default 15): if the strict
+ * probability filter yields fewer matches, the next highest-probability
+ * candidates are backfilled until the exact count is reached.
+ */
+export function generateParlay(
+  matches: Match[],
+  config: ParlayConfig
+): GeneratedParlay {
+  sanityDropLogged.clear();
+  const strategyMode = resolveMode(config);
+  const preset = getStrategyPreset(strategyMode);
+
+  if (isMonopolyStrategy(strategyMode)) {
+    // FULL_WEEK_AUTO: match pool is Monday–Sunday from getWeeklyDateRange().
+    // Date-picker input is ignored upstream in /api/parlay.
+    return buildMonopolyParlay(matches, {
+      stake: config.stake ?? preset.stake,
+      ignoreRotationFilter: config.ignoreRotationFilter === true,
+    });
+  }
+
+  const eliteMatches = filterMatchesByPredictionScope(
+    rejectMatchesWithoutRealOdds(filterEliteWhitelistMatches(matches)),
+    scopeFromConfig(config)
+  );
+  const targetLegCount = resolveTargetLegCount({
+    ...preset,
+    ...config,
+    strategyMode,
+  });
+
+  // When the live day is thin, still fill every unique qualifying match
+  const availableUnique = eliteMatches.length;
+  const effectiveTarget =
+    isFunStrategy(strategyMode) && availableUnique > 0
+      ? Math.min(targetLegCount, availableUnique)
+      : targetLegCount;
+
+  const effective: ParlayConfig = {
+    stake: config.stake ?? preset.stake,
+    targetMultiplier: config.targetMultiplier ?? preset.targetMultiplier,
+    maxLegs: Math.max(
+      config.maxLegs ?? preset.maxLegs,
+      effectiveTarget
+    ),
+    minOdds: config.minOdds ?? preset.minOdds,
+    maxOdds: config.maxOdds ?? preset.maxOdds,
+    minProbability: Math.max(
+      MIN_LEG_PROBABILITY,
+      config.minProbability ??
+        preset.minProbability ??
+        getStrictMinProbability()
+    ),
+    targetLegCount: effectiveTarget,
+    strategyMode,
+    expandLeagues: config.expandLeagues,
+    selectedCountries: config.selectedCountries,
+    selectedLeagueIds: config.selectedLeagueIds,
+  };
+
+  // Probability-first modes — avoid lottery-style odds chasing
+  const modes: RankMode[] = isSafeStrategy(strategyMode)
+    ? ["probability", "balanced", "edge"]
+    : ["probability", "balanced", "edge"];
+  const candidates: GeneratedParlay[] = [];
+  let bestBackfillMeta = { strictCount: 0, backfilled: 0 };
+
+  for (const mode of modes) {
+    const { pool, strictCount, backfilled } = isFunStrategy(strategyMode)
+      ? collectPicksWithBackfill(eliteMatches, effective, effectiveTarget, mode)
+      : {
+          pool: collectSafePicks(eliteMatches, effective, mode),
+          strictCount: 0,
+          backfilled: 0,
+        };
+
+    if (pool.length === 0) continue;
+
+    if (backfilled > bestBackfillMeta.backfilled) {
+      bestBackfillMeta = { strictCount, backfilled };
+    }
+
+    // Prefer positive-value legs (≥5% edge) when filling the accumulator
+    const rankedPool = prioritizeValueLegs(pool);
+
+    const minLegs = isFunStrategy(strategyMode)
+      ? Math.min(effectiveTarget, rankedPool.length)
+      : preset.minLegs;
+
+    candidates.push(
+      enforceExactLegCount(
+        buildGreedy(rankedPool, effective, minLegs),
+        rankedPool,
+        effective,
+        effectiveTarget
+      )
+    );
+    candidates.push(
+      enforceExactLegCount(
+        buildClosestToTarget(rankedPool, effective, minLegs),
+        rankedPool,
+        effective,
+        effectiveTarget
+      )
+    );
+  }
+
+  if (candidates.length === 0) {
+    return emptyParlay(effective.stake, strategyMode);
+  }
+
+  candidates.sort((a, b) => {
+    if (isSafeStrategy(strategyMode)) {
+      if (Math.abs(a.jointProbability - b.jointProbability) > 0.01) {
+        return b.jointProbability - a.jointProbability;
+      }
+      const aDist = Math.abs(
+        Math.log(Math.max(a.totalOdds, 1.01)) -
+          Math.log(effective.targetMultiplier)
+      );
+      const bDist = Math.abs(
+        Math.log(Math.max(b.totalOdds, 1.01)) -
+          Math.log(effective.targetMultiplier)
+      );
+      return aDist - bDist;
+    }
+
+    // High-probability focus: joint prob first, then fill, then target odds
+    if (Math.abs(a.jointProbability - b.jointProbability) > 0.005) {
+      return b.jointProbability - a.jointProbability;
+    }
+    const aFill = a.legs.length >= effectiveTarget ? 1 : 0;
+    const bFill = b.legs.length >= effectiveTarget ? 1 : 0;
+    if (aFill !== bFill) return bFill - aFill;
+    if (a.legs.length !== b.legs.length) return b.legs.length - a.legs.length;
+    if (a.hitTarget !== b.hitTarget) return a.hitTarget ? -1 : 1;
+    const aDist = Math.abs(
+      Math.log(a.totalOdds) - Math.log(effective.targetMultiplier)
+    );
+    const bDist = Math.abs(
+      Math.log(b.totalOdds) - Math.log(effective.targetMultiplier)
+    );
+    return aDist - bDist;
+  });
+
+  const best = candidates[0];
+  // Keep messaging relative to the user-facing 15-leg goal
+  const parlay = withFillNotice(best, targetLegCount, bestBackfillMeta);
+  const betBuilders = buildSameGameBetBuilders(eliteMatches);
+  return betBuilders.length > 0 ? { ...parlay, betBuilders } : parlay;
+}
+
+/**
+ * Top up or trim so the ticket has exactly `targetLegCount` legs when the
+ * pool allows it (fun / accumulator modes only).
+ */
+function enforceExactLegCount(
+  parlay: GeneratedParlay,
+  pool: ParlayLeg[],
+  config: ParlayConfig,
+  targetLegCount: number
+): GeneratedParlay {
+  const strategyMode = resolveMode(config);
+  if (!isFunStrategy(strategyMode)) return parlay;
+
+  if (parlay.legs.length === targetLegCount) return parlay;
+
+  if (parlay.legs.length > targetLegCount) {
+    return finalize(
+      parlay.legs.slice(0, targetLegCount),
+      config.stake,
+      config.targetMultiplier,
+      strategyMode
+    );
+  }
+
+  const used = new Set(parlay.legs.map((l) => l.matchId));
+  const extras = pool.filter((l) => !used.has(l.matchId));
+  const filled = [...parlay.legs];
+
+  for (const leg of extras) {
+    if (filled.length >= targetLegCount) break;
+    if (filled.length >= config.maxLegs) break;
+    filled.push(leg);
+  }
+
+  return finalize(
+    filled,
+    config.stake,
+    config.targetMultiplier,
+    strategyMode
+  );
+}
+
+function withFillNotice(
+  parlay: GeneratedParlay,
+  targetLegCount: number,
+  backfillMeta?: { strictCount: number; backfilled: number }
+): GeneratedParlay {
+  if (parlay.legs.length === 0) return parlay;
+
+  if (parlay.legs.length >= targetLegCount) {
+    if (backfillMeta && backfillMeta.backfilled > 0) {
+      return {
+        ...parlay,
+        fillNotice: `Filtro estricto (≥${(getStrictMinProbability() * 100).toFixed(0)}%): ${backfillMeta.strictCount} picks · se rellenaron ${backfillMeta.backfilled} slots con la siguiente mayor probabilidad para llegar a ${targetLegCount} legs`,
+      };
+    }
+    return { ...parlay, fillNotice: undefined };
+  }
+
+  return {
+    ...parlay,
+    fillNotice: `Se incluyeron los ${parlay.legs.length} partidos disponibles (objetivo: ${targetLegCount} legs)`,
+  };
+}
+
+/**
+ * Notice when a locked single day cannot supply 15 legs / ~150x–500x.
+ */
+export function singleDayShortfallNotice(
+  legCount: number,
+  targetLegCount: number,
+  matchPoolSize: number,
+  singleDayLocked: boolean
+): string | undefined {
+  if (!singleDayLocked) return undefined;
+  if (legCount >= targetLegCount) return undefined;
+  return `Se incluyeron los ${legCount} partidos disponibles para hoy (${matchPoolSize} fixtures con cuotas). Para alcanzar ${targetLegCount} legs con piso 80% / cuotas 1.40–1.85 / EV ≥ 3%, selecciona una fecha con más jornada elite o activa el rango de varios días.`;
+}
+
+function emptyParlay(
+  stake: number,
+  strategyMode: StrategyMode = "daily-safe"
+): GeneratedParlay {
+  const preset = getStrategyPreset(strategyMode);
+  return {
+    legs: [],
+    totalOdds: 1,
+    stake,
+    potentialPayout: stake,
+    jointProbability: 0,
+    riskLevel: "extreme",
+    riskLabel: "Sin picks seguros disponibles con los filtros actuales",
+    averageEdge: 0,
+    hitTarget: false,
+    strategyMode,
+    strategyLabel: STRATEGY_LABELS[strategyMode],
+    riskTier: preset.riskTier,
+    successProbabilityLabel: undefined,
+    status: isMonopolyStrategy(strategyMode) ? "INSUFFICIENT_MATCHES" : "OK",
+  };
+}
+
+function finalize(
+  legs: ParlayLeg[],
+  stake: number,
+  targetMultiplier: number,
+  strategyMode: StrategyMode
+): GeneratedParlay {
+  const preset = getStrategyPreset(strategyMode);
+  const totalOdds = legs.reduce((acc, l) => acc * l.odds, 1);
+  const jointProbability = legs.reduce(
+    (acc, l) => acc * l.modelProbability,
+    legs.length ? 1 : 0
+  );
+  const averageEdge =
+    legs.length === 0
+      ? 0
+      : legs.reduce((s, l) => s + l.edge, 0) / legs.length;
+  const risk = riskAssessment(jointProbability, preset.riskTier);
+  const successProbabilityLabel =
+    legs.length > 0
+      ? `Probabilidad estimada de éxito: ${(jointProbability * 100).toFixed(0)}%`
+      : undefined;
+
+  return {
+    legs,
+    totalOdds: Number(totalOdds.toFixed(4)),
+    stake,
+    potentialPayout: Number((stake * totalOdds).toFixed(0)),
+    jointProbability: Number(jointProbability.toFixed(6)),
+    averageEdge: Number(averageEdge.toFixed(4)),
+    hitTarget:
+      totalOdds >= targetMultiplier * (isSafeStrategy(strategyMode) ? 0.85 : 0.9),
+    strategyMode,
+    strategyLabel: STRATEGY_LABELS[strategyMode],
+    riskTier: preset.riskTier,
+    successProbabilityLabel,
+    ...risk,
+  };
+}
+
+function buildGreedy(
+  pool: ParlayLeg[],
+  config: ParlayConfig,
+  minLegs: number
+): GeneratedParlay {
+  const strategyMode = resolveMode(config);
+  const selected: ParlayLeg[] = [];
+  let product = 1;
+
+  for (const leg of pool) {
+    if (selected.length >= config.maxLegs) break;
+    if (selected.some((s) => s.matchId === leg.matchId)) continue;
+
+    selected.push(leg);
+    product *= leg.odds;
+
+    // Safe: stop once min legs + target multiplier are met
+    if (
+      isSafeStrategy(strategyMode) &&
+      selected.length >= minLegs &&
+      product >= config.targetMultiplier
+    ) {
+      break;
+    }
+    // Fun: never stop before exact targetLegCount (minLegs) — must fill 15
+  }
+
+  return finalize(
+    selected,
+    config.stake,
+    config.targetMultiplier,
+    strategyMode
+  );
+}
+
+function buildClosestToTarget(
+  pool: ParlayLeg[],
+  config: ParlayConfig,
+  minLegs: number
+): GeneratedParlay {
+  const strategyMode = resolveMode(config);
+  // Fun: prefer odds near ~1.62 to land total ~150x–500x
+  const ordered = isFunStrategy(strategyMode)
+    ? [...pool].sort(
+        (a, b) =>
+          funOddsFit(b.odds) - funOddsFit(a.odds) ||
+          b.odds - a.odds ||
+          b.modelProbability - a.modelProbability
+      )
+    : [...pool];
+  const selected: ParlayLeg[] = [];
+  let product = 1;
+
+  for (const leg of ordered) {
+    if (selected.length >= config.maxLegs) break;
+    if (selected.some((s) => s.matchId === leg.matchId)) continue;
+
+    const next = product * leg.odds;
+    const overshootCap = isSafeStrategy(strategyMode) ? 1.35 : 2.5;
+    if (
+      isSafeStrategy(strategyMode) &&
+      selected.length >= minLegs &&
+      product >= config.targetMultiplier * 0.95 &&
+      next > config.targetMultiplier * overshootCap
+    ) {
+      continue;
+    }
+
+    selected.push(leg);
+    product = next;
+
+    // Fun: fill all minLegs first; only then consider stopping near target
+    if (
+      selected.length >= minLegs &&
+      product >= config.targetMultiplier
+    ) {
+      break;
+    }
+  }
+
+  return finalize(
+    selected,
+    config.stake,
+    config.targetMultiplier,
+    strategyMode
+  );
+}
+
+export function buildMatchPredictions(
+  matches: Match[],
+  options?: {
+    minSafeProbability?: number;
+    minSafeOdds?: number;
+    maxSafeOdds?: number;
+    safeMarketsOnly?: boolean;
+  }
+): MatchPrediction[] {
+  return rejectMatchesWithoutRealOdds(filterEliteWhitelistMatches(matches)).map(
+    (match) => {
+      const knockoutEval = evaluateKnockoutContext(match);
+      const { expectedGoals, markets: allMarkets, contextFlags, contextNotes } =
+        predictMatchMarkets(match, {
+          minSafeProbability: resolveContextMinProbability(
+            options?.minSafeProbability ?? 0.85,
+            match
+          ),
+          minSafeOdds: options?.minSafeOdds ?? MIN_SELECTION_ODDS,
+          maxSafeOdds: options?.maxSafeOdds ?? 1.85,
+          asOf: new Date(match.kickoff),
+        });
+
+      const markets = options?.safeMarketsOnly
+        ? allMarkets.filter(
+            (m) =>
+              SAFE_MARKETS.has(m.market) &&
+              !isMarketBlockedByDerby(match, m.market)
+          )
+        : allMarkets.filter((m) => !isMarketBlockedByDerby(match, m.market));
+
+      const safe = markets
+        .filter((m) => m.isSafePick)
+        .sort((a, b) => {
+          const derbyDelta =
+            derbyMarketRankBonus(match, b.market) -
+            derbyMarketRankBonus(match, a.market);
+          if (Math.abs(derbyDelta) > 0.01) return derbyDelta;
+          return (
+            b.modelProbability - a.modelProbability || b.edge - a.edge
+          );
+        });
+
+      return {
+        matchId: match.id,
+        match,
+        expectedGoals,
+        markets,
+        bestSafePick: safe[0] ?? null,
+        contextFlags,
+        contextNotes,
+        knockoutContext:
+          toKnockoutContext(knockoutEval) ??
+          markets[0]?.knockoutContext,
+      };
+    }
+  );
+}
+
+export function formatParlayClipboard(
+  parlay: GeneratedParlay,
+  _currency = "CLP",
+  referenceYmd?: string
+): string {
+  if (parlay.legs.length === 0) {
+    return "CareWeaPredictions — Sin acumulador generado.";
+  }
+
+  const ref = referenceYmd ?? chileDateString();
+
+  const ordered = sortByKickoffDesc(
+    parlay.legs,
+    (leg) => leg.kickoff,
+    (leg) => leg.leagueName
+  );
+
+  let n = 0;
+  const legLines: string[] = [];
+  for (const l of ordered) {
+    n += 1;
+    const dayLabel = formatKickoffDayLabel(l.kickoff, ref);
+    const explicit = getExplicitPickFromLeg(l);
+    const knockoutLine = l.knockoutContext?.isKnockout
+      ? `     ⚠️ ${l.knockoutContext.note} (${l.knockoutContext.leg})`
+      : undefined;
+    legLines.push(
+      `  ${n}. [${dayLabel} CL] ${l.matchLabel}`,
+      `     ${l.leagueName || "Otros"} · Apuesta: ${formatExplicitBetLine(explicit)} @ ${l.odds.toFixed(2)} (${(l.modelProbability * 100).toFixed(1)}%)`,
+      `     Condición: ${explicit.condition}`,
+      ...(knockoutLine ? [knockoutLine] : []),
+      ...formatMarketGuideLines(explicit).map((line) =>
+        line.replace(/^   /, "     ")
+      )
+    );
+  }
+
+  const lines = [
+    `CareWeaPredictions — Accumulator (${parlay.legs.length} Legs)`,
+    `Multiplicador Total: ${parlay.totalOdds.toFixed(2)}x | Prob. Conjunta: ${(parlay.jointProbability * 100).toFixed(1)}%`,
+    parlay.strategyLabel
+      ? `Estrategia: ${parlay.strategyLabel}`
+      : undefined,
+    parlay.successProbabilityLabel,
+    parlay.fillNotice,
+    "────────────────────────",
+    ...legLines,
+    "────────────────────────",
+    `Legs: ${parlay.legs.length} partidos`,
+    `Riesgo: ${parlay.riskLabel}`,
+  ].filter(Boolean) as string[];
+
+  return lines.join("\n");
+}
