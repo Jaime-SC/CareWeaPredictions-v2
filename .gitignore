@@ -79,3 +79,7 @@ __pycache__/
 
 # graphify output
 /graphify-out/
+
+# impeccable: only the design sidecar is shared; live server, hook cache and critique snapshots are local
+.impeccable/*
+!.impeccable/design.json
