@@ -52,7 +52,7 @@ predicción) y la misma base de datos **Neon PostgreSQL** con todo el historial.
 | Tests e2e | **Playwright** (`@playwright/test`) proyectos Desktop Edge + Pixel 7 | Agente: `@playwright/cli` con skills |
 | Mapa del código | **Graphify** (`graphifyy`, skill de proyecto) | Para navegar el backend sin re-leer todo |
 | Calidad de diseño | **Impeccable** (`npx impeccable`, skill) | `PRODUCT.md`, `DESIGN.md`, `impeccable detect` en CI |
-| Disciplina de código | **Ponytail** (skill) | `/ponytail-audit` al cierre de cada fase |
+| Disciplina de código | **Ponytail** (plugin `ponytail@ponytail`) | `/ponytail-audit` al cierre de cada fase |
 
 ### Asignación de componentes animados (un propósito → un componente)
 
@@ -109,7 +109,7 @@ Cada fase termina con: commit(s) en `main` firmados por Jaime-SC, `docs/PLAN.md`
 ### F0 — Fundaciones ✅
 - [x] Crear `CareWeaPredictions-v2` con el backend limpio del v1 (API, lib, prisma, scripts, config, data)
 - [x] Reglas del proyecto en `CLAUDE.md` + este plan
-- [x] Instalar skills de proyecto: Impeccable, Ponytail, Graphify, Playwright CLI
+- [x] Instalar skills de proyecto: Impeccable, Graphify, Playwright CLI; Ponytail como plugin de usuario
 - [x] Dependencias base: `motion`, `next-themes`, `lucide-react`; quitar `framer-motion`, `recharts`
 - [x] Tokens de color 60/30/10 en `app/globals.css`, modo oscuro por defecto
 - [x] Shell mínimo (layout + página de inicio provisional) para que `npm run build` pase
@@ -185,12 +185,12 @@ _Una entrada por fase cerrada: fecha, qué se hizo, decisiones, pendientes._
   El modelo de mercados secundarios es heurístico: `lib/secondary-markets.ts`.
 - Eliminados los módulos solo-cliente del v1 (`api-rate-limit-cooldown`, `bankroll-store`,
   `bet-record-client`, `builder-restore`, `dashboard-storage`): el frontend nuevo define su propio estado.
-- Skills de proyecto en `.claude/skills/`: impeccable (+ hooks en `.claude/settings.json`), ponytail
-  (6 skills, MIT, copiadas del repo), graphify (grafo local en `graphify-out/`, no versionado),
-  playwright-cli (Edge como navegador por defecto).
+- Skills de proyecto en `.claude/skills/`: impeccable (+ hooks en `.claude/settings.json`), graphify
+  (grafo local en `graphify-out/`, no versionado), playwright-cli (Edge como navegador por defecto).
+- Ponytail va como plugin de usuario (`ponytail@ponytail` v5.3.3, marketplace
+  `DietrichGebert/ponytail`, con hooks/statusline); se borró la copia local de sus 6 skills.
+  Quien clone el repo debe instalar el plugin para tener `/ponytail-audit`.
 - CI: `tsc` + lint + `npm run verify` (38/38) + build + Playwright (Desktop Edge y Pixel 7).
 - `ingest-advanced-stats.yml` queda **solo manual** en la v2 hasta el corte (F7): el v1 lo sigue
   corriendo a diario contra la misma Neon.
-- Pendiente del usuario: instalar el plugin completo de Ponytail (hooks/statusline) con
-  `/plugin marketplace add DietrichGebert/ponytail` y `/plugin install ponytail@ponytail`.
 - Tipografía Geist es provisional (se decide en F1).
