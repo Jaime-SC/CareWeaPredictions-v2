@@ -1,0 +1,728 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-27T01:17:05.092Z",
+  "title": "Design System: CareWeaPredictions",
+  "extensions": {
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Verde Cancha",
+        "canonical": "#1b4532",
+        "tonalRamp": [
+          "#08150f",
+          "#0e2319",
+          "#133023",
+          "#183e2d",
+          "#446657",
+          "#758f83",
+          "#a7b7af",
+          "#d4dcd8"
+        ]
+      },
+      "brand-paper": {
+        "role": "neutral",
+        "displayName": "Papel Cálido",
+        "canonical": "#fffbfc",
+        "tonalRamp": [
+          "#4d4b4c",
+          "#807e7e",
+          "#b3b0b0",
+          "#e6e2e3",
+          "#fffcfd",
+          "#fffdfd",
+          "#fffdfe",
+          "#fffefe"
+        ]
+      },
+      "brand-accent": {
+        "role": "primary",
+        "displayName": "Rojo Tarjeta",
+        "canonical": "#ee4129",
+        "tonalRamp": [
+          "#47140c",
+          "#772115",
+          "#a72e1d",
+          "#d63b25",
+          "#f16350",
+          "#f58c7e",
+          "#f8b5ac",
+          "#fcdbd6"
+        ]
+      },
+      "brand-accent-strong": {
+        "role": "primary",
+        "displayName": "Rojo Tarjeta Fuerte",
+        "canonical": "#d63a24",
+        "tonalRamp": [
+          "#40110b",
+          "#6b1d12",
+          "#962919",
+          "#c13420",
+          "#dd5d4b",
+          "#e6887b",
+          "#efb3aa",
+          "#f7dad5"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Noche de Estadio",
+        "canonical": "#0b1c14",
+        "tonalRamp": [
+          "#030806",
+          "#060e0a",
+          "#08140e",
+          "#0a1912",
+          "#37453e",
+          "#6c7671",
+          "#a0a7a4",
+          "#d1d4d2"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Papel Cálido (texto)",
+        "canonical": "#fffbfc",
+        "tonalRamp": [
+          "#4d4b4c",
+          "#807e7e",
+          "#b3b0b0",
+          "#e6e2e3",
+          "#fffcfd",
+          "#fffdfd",
+          "#fffdfe",
+          "#fffefe"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Césped Bajo Focos",
+        "canonical": "#12301f",
+        "tonalRamp": [
+          "#050e09",
+          "#091810",
+          "#0d2216",
+          "#102b1c",
+          "#3d5547",
+          "#708278",
+          "#a3afa8",
+          "#d2d8d4"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Césped Sombra",
+        "canonical": "#163a27",
+        "tonalRamp": [
+          "#07110c",
+          "#0b1d14",
+          "#0f291b",
+          "#143423",
+          "#405d4e",
+          "#72887d",
+          "#a5b3ab",
+          "#d3dad6"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Salvia Gris",
+        "canonical": "#b3c4b9",
+        "tonalRamp": [
+          "#363b38",
+          "#5a625d",
+          "#7d8982",
+          "#a1b0a7",
+          "#c1cfc6",
+          "#d1dbd5",
+          "#e2e8e4",
+          "#f1f4f2"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "CTA (accent-strong)",
+        "canonical": "#d63a24",
+        "tonalRamp": [
+          "#40110b",
+          "#6b1d12",
+          "#962919",
+          "#c13420",
+          "#dd5d4b",
+          "#e6887b",
+          "#efb3aa",
+          "#f7dad5"
+        ]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Texto sobre CTA",
+        "canonical": "#fffbfc",
+        "tonalRamp": [
+          "#4d4b4c",
+          "#807e7e",
+          "#b3b0b0",
+          "#e6e2e3",
+          "#fffcfd",
+          "#fffdfd",
+          "#fffdfe",
+          "#fffefe"
+        ]
+      },
+      "secondary": {
+        "role": "primary",
+        "displayName": "Secundario verde",
+        "canonical": "#1b4532",
+        "tonalRamp": [
+          "#08150f",
+          "#0e2319",
+          "#133023",
+          "#183e2d",
+          "#446657",
+          "#758f83",
+          "#a7b7af",
+          "#d4dcd8"
+        ]
+      },
+      "ring": {
+        "role": "primary",
+        "displayName": "Foco",
+        "canonical": "#ee4129",
+        "tonalRamp": [
+          "#47140c",
+          "#772115",
+          "#a72e1d",
+          "#d63b25",
+          "#f16350",
+          "#f58c7e",
+          "#f8b5ac",
+          "#fcdbd6"
+        ]
+      },
+      "won": {
+        "role": "status",
+        "displayName": "Ganada",
+        "canonical": "#5bd68a",
+        "tonalRamp": [
+          "#1b4029",
+          "#2e6b45",
+          "#409661",
+          "#52c17c",
+          "#79dd9f",
+          "#9ce6b8",
+          "#bfefd2",
+          "#e0f7e9"
+        ]
+      },
+      "lost": {
+        "role": "status",
+        "displayName": "Perdida (arcilla)",
+        "canonical": "#d3a19a",
+        "tonalRamp": [
+          "#3f302e",
+          "#6a514d",
+          "#94716c",
+          "#be918b",
+          "#dbb2ac",
+          "#e4c6c2",
+          "#eedbd8",
+          "#f7edec"
+        ]
+      },
+      "pending": {
+        "role": "status",
+        "displayName": "Pendiente",
+        "canonical": "#e9c46a",
+        "tonalRamp": [
+          "#463b20",
+          "#756235",
+          "#a3894a",
+          "#d2b05f",
+          "#edcf85",
+          "#f2dba5",
+          "#f6e8c5",
+          "#fbf4e3"
+        ]
+      },
+      "void": {
+        "role": "status",
+        "displayName": "Nula",
+        "canonical": "#a3b5aa",
+        "tonalRamp": [
+          "#313633",
+          "#525b55",
+          "#727f77",
+          "#93a399",
+          "#b4c2b9",
+          "#c7d2cc",
+          "#dbe2de",
+          "#eef1ef"
+        ]
+      },
+      "value": {
+        "role": "status",
+        "displayName": "Value",
+        "canonical": "#7cc8f2",
+        "tonalRamp": [
+          "#253c49",
+          "#3e6479",
+          "#578ca9",
+          "#70b4da",
+          "#94d2f4",
+          "#b0def7",
+          "#cceafa",
+          "#e6f5fd"
+        ]
+      },
+      "risk": {
+        "role": "status",
+        "displayName": "Riesgo",
+        "canonical": "#f4a261",
+        "tonalRamp": [
+          "#49311d",
+          "#7a5131",
+          "#ab7144",
+          "#dc9257",
+          "#f6b37d",
+          "#f8c7a0",
+          "#fbdbc2",
+          "#fdede1"
+        ]
+      },
+      "light-background": {
+        "role": "neutral",
+        "displayName": "Noche de Estadio (claro)",
+        "canonical": "#fffbfc",
+        "tonalRamp": [
+          "#4d4b4c",
+          "#807e7e",
+          "#b3b0b0",
+          "#e6e2e3",
+          "#fffcfd",
+          "#fffdfd",
+          "#fffdfe",
+          "#fffefe"
+        ]
+      },
+      "light-foreground": {
+        "role": "neutral",
+        "displayName": "Papel Cálido (texto) (claro)",
+        "canonical": "#10261b",
+        "tonalRamp": [
+          "#050b08",
+          "#08130e",
+          "#0b1b13",
+          "#0e2218",
+          "#3b4d44",
+          "#6f7c75",
+          "#a2aba7",
+          "#d2d6d4"
+        ]
+      },
+      "light-card": {
+        "role": "neutral",
+        "displayName": "Césped Bajo Focos (claro)",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4d4d4d",
+          "#808080",
+          "#b3b3b3",
+          "#e6e6e6",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
+      },
+      "light-muted": {
+        "role": "neutral",
+        "displayName": "Césped Sombra (claro)",
+        "canonical": "#f3eeee",
+        "tonalRamp": [
+          "#494747",
+          "#7a7777",
+          "#aaa7a7",
+          "#dbd6d6",
+          "#f5f1f1",
+          "#f8f5f5",
+          "#faf8f8",
+          "#fdfcfc"
+        ]
+      },
+      "light-muted-foreground": {
+        "role": "neutral",
+        "displayName": "Salvia Gris (claro)",
+        "canonical": "#4c5e54",
+        "tonalRamp": [
+          "#171c19",
+          "#262f2a",
+          "#35423b",
+          "#44554c",
+          "#6c7b73",
+          "#939e98",
+          "#bac1bd",
+          "#dde0df"
+        ]
+      },
+      "light-accent": {
+        "role": "neutral",
+        "displayName": "Hover quieto (claro)",
+        "canonical": "#ebf1ed",
+        "tonalRamp": [
+          "#474847",
+          "#767977",
+          "#a5a9a6",
+          "#d4d9d5",
+          "#eff4f0",
+          "#f3f7f4",
+          "#f7faf8",
+          "#fbfcfc"
+        ]
+      },
+      "light-ring": {
+        "role": "primary",
+        "displayName": "Foco (claro)",
+        "canonical": "#d63a24",
+        "tonalRamp": [
+          "#40110b",
+          "#6b1d12",
+          "#962919",
+          "#c13420",
+          "#dd5d4b",
+          "#e6887b",
+          "#efb3aa",
+          "#f7dad5"
+        ]
+      },
+      "light-won": {
+        "role": "status",
+        "displayName": "Ganada (claro)",
+        "canonical": "#17703f",
+        "tonalRamp": [
+          "#072213",
+          "#0c3820",
+          "#104e2c",
+          "#156539",
+          "#418a62",
+          "#73a98b",
+          "#a5c8b5",
+          "#d3e4db"
+        ]
+      },
+      "light-lost": {
+        "role": "status",
+        "displayName": "Perdida (arcilla) (claro)",
+        "canonical": "#8e4a43",
+        "tonalRamp": [
+          "#2b1614",
+          "#472522",
+          "#63342f",
+          "#80433c",
+          "#a26b65",
+          "#bb928d",
+          "#d3b9b6",
+          "#eadddb"
+        ]
+      },
+      "light-pending": {
+        "role": "status",
+        "displayName": "Pendiente (claro)",
+        "canonical": "#7a5a00",
+        "tonalRamp": [
+          "#251b00",
+          "#3d2d00",
+          "#553f00",
+          "#6e5100",
+          "#92782e",
+          "#af9b65",
+          "#cbbf9c",
+          "#e6e0cf"
+        ]
+      },
+      "light-void": {
+        "role": "status",
+        "displayName": "Nula (claro)",
+        "canonical": "#56685e",
+        "tonalRamp": [
+          "#1a1f1c",
+          "#2b342f",
+          "#3c4942",
+          "#4d5e55",
+          "#74837b",
+          "#99a49e",
+          "#bdc4c1",
+          "#dfe2e0"
+        ]
+      },
+      "light-value": {
+        "role": "status",
+        "displayName": "Value (claro)",
+        "canonical": "#0b6590",
+        "tonalRamp": [
+          "#031e2b",
+          "#063348",
+          "#084765",
+          "#0a5b82",
+          "#3781a4",
+          "#6ca2bc",
+          "#a0c3d4",
+          "#d1e2ea"
+        ]
+      },
+      "light-risk": {
+        "role": "status",
+        "displayName": "Riesgo (claro)",
+        "canonical": "#a4500f",
+        "tonalRamp": [
+          "#311805",
+          "#522808",
+          "#73380b",
+          "#94480e",
+          "#b4703a",
+          "#c8956e",
+          "#dcbba2",
+          "#eeded1"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display-lg": {
+        "displayName": "Display L",
+        "purpose": "Partido del pick del día y bankroll principal; mayúsculas."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Títulos de pantalla y probabilidad del modelo."
+      },
+      "display-sm": {
+        "displayName": "Display S",
+        "purpose": "Títulos de sección y estados vacíos; mayúsculas."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Enunciado de un pick."
+      },
+      "body-lg": {
+        "displayName": "Body L",
+        "purpose": "Líneas de decisión."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explicación, máximo 65ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metadatos de liga, hora y leyendas en muted-foreground."
+      },
+      "figure": {
+        "displayName": "Cifra",
+        "purpose": "Cuotas, montos, porcentajes y horas en Geist Mono tabular."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-raised",
+        "value": "0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px -10px rgb(0 0 0 / 0.55)",
+        "light": "0 1px 2px rgb(16 38 27 / 0.08), 0 8px 24px -12px rgb(16 38 27 / 0.22)",
+        "purpose": "Tooltips y elementos levemente elevados."
+      },
+      {
+        "name": "shadow-overlay",
+        "value": "0 2px 6px rgb(0 0 0 / 0.3), 0 24px 56px -16px rgb(0 0 0 / 0.65)",
+        "light": "0 2px 6px rgb(16 38 27 / 0.08), 0 24px 56px -18px rgb(16 38 27 / 0.3)",
+        "purpose": "Dock, isla de estado y todo lo que flota."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Feedback inmediato."
+      },
+      {
+        "name": "duration-base",
+        "value": "240ms",
+        "purpose": "Transición por defecto (MotionConfig)."
+      },
+      {
+        "name": "duration-slow",
+        "value": "420ms",
+        "purpose": "Rellenos de barras y entradas mayores."
+      },
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Easing por defecto."
+      },
+      {
+        "name": "ease-in-out-quart",
+        "value": "cubic-bezier(0.76, 0, 0.24, 1)",
+        "purpose": "Movimientos simétricos."
+      },
+      {
+        "name": "spring-snappy",
+        "value": "stiffness 520, damping 34, mass 0.7",
+        "purpose": "Presión, toggles, chips."
+      },
+      {
+        "name": "spring-gentle",
+        "value": "stiffness 260, damping 30",
+        "purpose": "Tarjetas, sheets, cambios de layout."
+      },
+      {
+        "name": "spring-bouncy",
+        "value": "stiffness 380, damping 18",
+        "purpose": "Solo la apuesta confirmada; nunca en loops."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "MotionConfig reducedMotion=\"user\" + CSS 0.01ms",
+        "purpose": "Quita transform/layout, deja opacidad; CSS casi instantáneo."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "390px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "desktop",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal, una por vista.",
+      "html": "<button class=\"ds-btn-primary\">Registrar apuesta</button>",
+      "css": ".ds-btn-primary{height:36px;padding:0 10px;border-radius:var(--radius);font:500 14px var(--font-sans);cursor:pointer;transition:background .15s,transform .15s;border:1px solid transparent;background:var(--primary);color:var(--primary-foreground)}.ds-btn-primary:hover{background:color-mix(in srgb,var(--primary) 80%,transparent)}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción alternativa en verde cancha.",
+      "html": "<button class=\"ds-btn-secondary\">Ver historial</button>",
+      "css": ".ds-btn-secondary{height:36px;padding:0 10px;border-radius:var(--radius);font:500 14px var(--font-sans);cursor:pointer;transition:background .15s,transform .15s;border:1px solid transparent;background:var(--secondary);color:var(--secondary-foreground)}.ds-btn-secondary:hover{background:color-mix(in oklch,var(--secondary),var(--foreground) 5%)}.ds-btn-secondary:active{transform:translateY(1px)}.ds-btn-secondary:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Filtros y acciones de simulación.",
+      "html": "<button class=\"ds-btn-outline\">Filtrar ligas</button>",
+      "css": ".ds-btn-outline{height:36px;padding:0 10px;border-radius:var(--radius);font:500 14px var(--font-sans);cursor:pointer;transition:background .15s,transform .15s;border:1px solid var(--input);background:color-mix(in srgb,var(--input) 30%,transparent);color:var(--foreground)}.ds-btn-outline:hover{background:color-mix(in srgb,var(--input) 50%,transparent)}.ds-btn-outline:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Cancelar y controles discretos.",
+      "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
+      "css": ".ds-btn-ghost{height:36px;padding:0 10px;border-radius:var(--radius);font:500 14px var(--font-sans);cursor:pointer;transition:background .15s,transform .15s;border:0;background:transparent;color:var(--foreground)}.ds-btn-ghost:hover{background:color-mix(in srgb,var(--muted) 50%,transparent)}.ds-btn-ghost:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Estado o señal: ícono + palabra + tinte al 14 %.",
+      "html": "<span class=\"ds-badge ds-badge-value\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M16 7h6v6\"/><path d=\"m22 7-8.5 8.5-5-5L2 17\"/></svg>Value +6,2 %</span> <span class=\"ds-badge ds-badge-lost\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m15 9-6 6M9 9l6 6\"/></svg>Perdida</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:2rem;font:500 13px var(--font-sans)}.ds-badge-value{background:color-mix(in srgb,var(--value) 14%,transparent);color:var(--value)}.ds-badge-lost{background:color-mix(in srgb,var(--lost) 14%,transparent);color:var(--lost)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor tonal, sin sombra en reposo.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-meta\">Primera División · Hoy 20:30</p><p class=\"ds-card-title\">Colo-Colo</p><p class=\"ds-card-fig\">1,85</p></div>",
+      "css": ".ds-card{background:var(--card);color:var(--card-foreground);border:1px solid var(--border);border-radius:calc(var(--radius)*1.8);padding:20px}.ds-card-meta{margin:0;font:400 14px var(--font-sans);color:var(--muted-foreground)}.ds-card-title{margin:16px 0 0;font:400 56px/0.92 var(--font-display);text-transform:uppercase}.ds-card-fig{margin:8px 0 0;font:400 18px var(--font-mono);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Probability Bar",
+      "kind": "custom",
+      "refersTo": "probability-bar",
+      "description": "Modelo vs probabilidad implícita; el tramo entre ambos es el value.",
+      "html": "<div class=\"ds-pb\" role=\"meter\" aria-label=\"Probabilidad del modelo frente a la cuota\" aria-valuenow=\"57.4\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuetext=\"Modelo 57,4 %, la cuota implica 54,1 %, value +6,2 %\"><div class=\"ds-pb-track\"><span class=\"ds-pb-fill\" style=\"width:57.4%\"></span><span class=\"ds-pb-gap\" style=\"left:54.1%;width:3.3%\"></span><span class=\"ds-pb-tick\" style=\"left:54.1%\"></span></div><p class=\"ds-pb-ev\">Value +6,2 %</p></div>",
+      "css": ".ds-pb{background:var(--card);border:1px solid var(--border);border-radius:calc(var(--radius)*1.8);padding:20px}.ds-pb-track{position:relative;height:12px;border-radius:9999px;background:var(--muted)}.ds-pb-fill{position:absolute;inset:0 auto 0 0;border-radius:9999px;background:color-mix(in srgb,var(--foreground) 25%,transparent)}.ds-pb-gap{position:absolute;top:0;bottom:0;border-radius:9999px;background:var(--value)}.ds-pb-tick{position:absolute;top:-6px;bottom:-6px;width:2px;transform:translateX(-50%);border-radius:9999px;background:var(--foreground)}.ds-pb-ev{margin:16px 0 0;font:400 14px var(--font-mono);font-variant-numeric:tabular-nums;color:var(--value)}"
+    },
+    {
+      "name": "Dock",
+      "kind": "nav",
+      "refersTo": "dock",
+      "description": "Navegación flotante de escritorio.",
+      "html": "<nav class=\"ds-dock\" aria-label=\"Principal\"><button class=\"ds-dock-btn\" aria-label=\"Inicio\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z\"/></svg></button><button class=\"ds-dock-btn\" aria-label=\"Historial\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l4 2\"/></svg></button></nav>",
+      "css": ".ds-dock{display:inline-flex;gap:8px;height:58px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:calc(var(--radius)*1.8);background:color-mix(in srgb,var(--card) 90%,transparent);box-shadow:var(--shadow-overlay);backdrop-filter:blur(12px)}.ds-dock-btn{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:9999px;background:transparent;color:var(--foreground);cursor:pointer}.ds-dock-btn:hover{background:var(--muted)}.ds-dock-btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "El marcador honesto",
+    "overview": "Un tablero de cancha nocturna: verde profundo de fondo, cifras grandes y condensadas como en un marcador de estadio, y una sola chispa roja que marca la acción. Todo lo demás está al servicio de leer números rápido y sin trampa: la probabilidad del modelo junto a la que implica la cuota, el value con su signo, el resultado liquidado con su ícono y su palabra.\n\nLa densidad es de herramienta diaria, no de casino. El oscuro es el modo por defecto y el claro es una traducción completa con sus propios valores de estado, no una inversión. La interfaz frena antes de empujar: el stake sugerido se muestra al lado del elegido y, sobre el 2 % del bankroll, aparece un aviso de riesgo. El movimiento es corto, con ease-out expo, y desaparece con `prefers-reduced-motion`.\n\nLos componentes vendorizados (Magic UI, Kokonut, Bklit, shadcn, lucide-animated) se re-tokenizan al entrar al proyecto: ningún zinc, emerald ni red de origen sobrevive en la superficie compartida.",
+    "keyCharacteristics": [
+      "Verde cancha 60 %, papel 30 %, rojo 10 %; oscuro por defecto.",
+      "Big Shoulders en mayúsculas para marcador y cifras grandes; Schibsted Grotesk para la interfaz; Geist Mono tabular para cuotas y montos.",
+      "Estados siempre como ícono + palabra + tinte al 14 %, nunca solo color.",
+      "Gráficos neutros que comparan contra la probabilidad implícita.",
+      "Profundidad por superficies tonales más dos sombras con desplazamiento y desenfoque."
+    ],
+    "rules": [
+      {
+        "name": "The Red Is Action Rule",
+        "body": "El rojo marca la acción principal y el foco. Nunca texto `#EE4129` sobre `#1B4532` (2.79:1, prohibido); un botón rojo con texto normal usa `brand-accent-strong`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clay Loss Rule",
+        "body": "\"Perdida\" es arcilla apagada (`lost`), nunca el rojo de CTA: perder no compite con la acción.",
+        "section": "colors"
+      },
+      {
+        "name": "The Machine-Checked Pair Rule",
+        "body": "Todo par de texto nuevo se agrega a `scripts/verify-contrast.ts` en hex; si no pasa (4.5 texto, 3 ring), no entra.",
+        "section": "colors"
+      },
+      {
+        "name": "The Scoreboard Rule",
+        "body": "Big Shoulders va en mayúsculas y solo en titulares y cifras grandes; nunca en párrafos ni en controles.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figure Rule",
+        "body": "Toda cifra que se compara o cambia (cuota, monto, porcentaje, hora) va en Geist Mono con `tabular-nums`; los montos usan formato `es-CL` (CLP sin decimales, coma decimal).",
+        "section": "typography"
+      },
+      {
+        "name": "The Tonal-First Rule",
+        "body": "Una tarjeta en reposo se distingue por tono y borde, no por sombra; la sombra se reserva para lo que flota.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar `brand-accent-strong` (#D63A24) para todo botón rojo con texto normal.",
+      "Do acompañar cada estado con ícono + palabra + tinte al 14 %.",
+      "Do escribir cuotas, montos y porcentajes en Geist Mono tabular con formato `es-CL`.",
+      "Do comparar en los gráficos contra la probabilidad implícita y mantener las barras neutras.",
+      "Do re-tokenizar todo componente vendorizado al incorporarlo: cero zinc/emerald/red de origen.",
+      "Do usar `motion/react` con los tokens de `components/motion/tokens.ts` (150/240/420 ms, ease-out expo; springs snappy, gentle, bouncy) bajo `MotionConfig reducedMotion=\"user\"`.",
+      "Do registrar cada par de contraste nuevo en `scripts/verify-contrast.ts`."
+    ],
+    "donts": [
+      "Don't poner texto `#EE4129` sobre `#1B4532` (2.79:1).",
+      "Don't pintar \"Perdida\" con el rojo de CTA.",
+      "Don't usar color de estado como relleno decorativo de barras o fondos.",
+      "Don't usar el spring `bouncy` fuera del único momento celebratorio (apuesta confirmada) ni en loops.",
+      "Don't animar nada que dure más de 5 s sin control de pausa.",
+      "Don't usar lenguaje ni brillo de casino; la voz es directa, en español chileno neutro."
+    ]
+  }
+}

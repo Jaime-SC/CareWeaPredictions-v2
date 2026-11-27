@@ -4,9 +4,10 @@
  */
 import { spawnSync } from "node:child_process";
 
+// run-backtest-compare is not here: it reads Neon + football-data, so it can't run offline/in CI.
 const OFFLINE = [
-  "run-backtest-compare", "verify-allowed-leagues", "verify-auto-tuner", "verify-auto-tuning",
-  "verify-backtest", "verify-concacaf-origin", "verify-conmebol-origin", "verify-context-engine",
+  "verify-allowed-leagues", "verify-auto-tuner", "verify-auto-tuning",
+  "verify-backtest", "verify-concacaf-origin", "verify-conmebol-origin", "verify-contrast", "verify-context-engine",
   "verify-context-rules", "verify-cron-decouple", "verify-diversity", "verify-europe-cup-origin",
   "verify-hybrid-engine", "verify-injuries-checker", "verify-knockout-engine",
   "verify-league-labels-serie-a", "verify-league-labels", "verify-leakage-asof",

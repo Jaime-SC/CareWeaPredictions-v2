@@ -25,6 +25,16 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
     },
   },
+  {
+    // Vendored shadcn-registry code (Bklit, Kokonut): these React Compiler rules flag its
+    // ref-in-render and self-scheduling rAF patterns, which are intentional upstream. We keep
+    // the files close to upstream so `shadcn add --overwrite` stays reviewable.
+    files: ["components/charts/**", "components/kokonutui/**"],
+    rules: {
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

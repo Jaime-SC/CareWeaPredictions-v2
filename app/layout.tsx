@@ -1,11 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
+import { Big_Shoulders, Geist_Mono, Schibsted_Grotesk } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
-// ponytail: Geist is provisional; F1 picks the final type pairing with /impeccable.
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// opsz axis: large sizes get the display cut automatically (font-optical-sizing: auto).
+const display = Big_Shoulders({
+  variable: "--font-big-shoulders",
+  subsets: ["latin"],
+  axes: ["opsz"],
+  // next/font has no fallback metrics for this family; declare the fallback ourselves.
+  adjustFontFallback: false,
+  fallback: ["Arial Narrow", "sans-serif"],
+});
+const sans = Schibsted_Grotesk({ variable: "--font-schibsted", subsets: ["latin"] });
+const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "CareWeaPredictions",
@@ -22,11 +30,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" themes={["dark", "light"]} enableSystem={false}>
-          {children}
-        </ThemeProvider>
+    <html lang="es" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+      <body className="min-h-dvh">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
