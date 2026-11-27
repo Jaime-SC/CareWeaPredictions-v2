@@ -201,7 +201,8 @@ export function LineChart({
         ref={containerRef}
         style={{
           ...(aspectRatio ? { aspectRatio } : undefined),
-          touchAction: "none",
+          // CareWea: pan-y keeps vertical page scroll on phones; horizontal drags still scrub.
+          touchAction: "pan-y",
           ...style,
         }}
       >

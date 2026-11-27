@@ -67,8 +67,13 @@ for (const [name, t] of Object.entries(themes)) {
   }
 }
 
-// Brand rules from docs/PLAN.md: the CTA red must stay unreadable on #1B4532 (guard against palette edits).
-console.assert(ratio("#ee4129", "#1b4532") < 3, "#EE4129 on #1B4532 unexpectedly passes");
+// docs/PLAN.md forbids brand-accent text on brand. If a palette edit ever makes that pair pass AA,
+// the rule and its contrast table are stale: fail so someone revisits them.
+const forbidden = ratio(dark["brand-accent"], dark.brand);
+if (forbidden >= 4.5) {
+  failed++;
+  console.log(`✗ brand-accent on brand now ${forbidden.toFixed(2)}: update the forbidden-pair rule in docs/PLAN.md`);
+}
 
 if (failed) {
   console.log(`\n${failed} pair(s) below WCAG AA`);

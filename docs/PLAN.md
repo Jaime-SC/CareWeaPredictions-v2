@@ -242,7 +242,7 @@ _Una entrada por fase cerrada: fecha, qué se hizo, decisiones, pendientes._
   (`primary` = CTA `#D63A24`, `accent` = hover silencioso), radio base 0.875rem, `shadow-raised` /
   `shadow-overlay`, estados `won/lost/pending/void` + `value/risk` (perdida = arcilla apagada).
   Bloque oscuro en `:root, .dark` para poder forzar tema por sección. Contraste verificado por
-  `scripts/verify-contrast.ts`, ahora parte de `npm run verify` (39/39).
+  `scripts/verify-contrast.ts`, ahora parte de `npm run verify` (38/38). `run-backtest-compare` sale de la lista offline: lee Neon y football-data y rompía el CI desde F0.
 - **Movimiento:** `components/motion/tokens.ts` (150/240/420 ms, ease-out expo, springs
   snappy/gentle/bouncy) y `<MotionConfig reducedMotion="user">` en `app/providers.tsx`.
 - **Componentes:** shadcn (radix) + registries `@magicui`, `@smoothui`, `@kokonutui`, `@bklit`,
